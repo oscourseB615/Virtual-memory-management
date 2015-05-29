@@ -21,7 +21,7 @@ Ptr_MemoryAccessRequest ptr_memAccReq;
 void do_init()
 {
 	int i, j,k;
-	srand(time(NULL));
+	srandom(time(NULL));
 	for (i = 0; i < ROOT_PAGE_SUM; i++)
 	{
 		for(k=0;k<SEC_PAGE_SUM;k++)
@@ -31,7 +31,7 @@ void do_init()
 		pageTable[i][k].edited = FALSE;
 		pageTable[i][k].count = 0;
 		/* 使用随机数设置该页的保护类型 */
-		switch (rand() % 7)
+		switch (random() % 7)
 		{
 			case 0:
 			{
@@ -77,10 +77,10 @@ void do_init()
 	for (j = 0; j < BLOCK_SUM; j++)
 	{
 		/* 随机选择一些物理块进行页面装入 */
-		if (rand() % 2 == 0)
+		if (random() % 2 == 0)
 		{
-			i=rand()%ROOT_PAGE_SUM;
-			k=rand()%SEC_PAGE_SUM;
+			i=random()%ROOT_PAGE_SUM;
+			k=random()%SEC_PAGE_SUM;
 			do_page_in(&pageTable[i][k], j);
 			pageTable[i][k].blockNum = j;
 			pageTable[i][k].filled = TRUE;
@@ -353,9 +353,9 @@ void do_error(ERROR_CODE code)
 void do_request()
 {
 	/* 随机产生请求地址 */
-	ptr_memAccReq->virAddr = rand() % VIRTUAL_MEMORY_SIZE;
+	ptr_memAccReq->virAddr = random() % VIRTUAL_MEMORY_SIZE;
 	/* 随机产生请求类型 */
-	switch (rand() % 3)
+	switch (random() % 3)
 	{
 		case 0: //读请求
 		{
@@ -367,7 +367,7 @@ void do_request()
 		{
 			ptr_memAccReq->reqType = REQUEST_WRITE;
 			/* 随机产生待写入的值 */
-			ptr_memAccReq->value = rand() % 0xFFu;
+			ptr_memAccReq->value = random() % 0xFFu;
 			printf("产生请求：\n地址：%u\t类型：写入\t值：%02X\n", ptr_memAccReq->virAddr, ptr_memAccReq->value);
 			break;
 		}
@@ -384,7 +384,8 @@ void do_request()
 void do_request1()
 {
 	/* 输入请求地址 */
-	int a,b;
+	int a;
+	char b;
 	printf("输入请求地址...\n");
 	scanf("%d",&a);
 	ptr_memAccReq->virAddr =a;
@@ -404,7 +405,9 @@ void do_request1()
 			ptr_memAccReq->reqType = REQUEST_WRITE;
 			/* 输入待写入的值 */
 			printf("输入待写入的值 ...\n");
-			scanf("%d",&b);
+			getchar();
+			scanf("%c",&b);
+
 			ptr_memAccReq->value =b% 0xFFu;
 			printf("产生请求：\n地址：%u\t类型：写入\t值：%02X\n", ptr_memAccReq->virAddr, ptr_memAccReq->value);
 			break;
@@ -455,13 +458,13 @@ char *get_proType_str(char *str, BYTE type)
 }
 void initfile(){
 int i;
-char* key="0123456789abcdefghijklmnopqrstuvwxyzABCEFGHIJKLMNOPQRSTUVWXYZ";
+char* key="0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 char buffer[VIRTUAL_MEMORY_SIZE*2+1];
 int err;
 ptr_auxMem=fopen(AUXILIARY_MEMORY,"w+");
 for(i=0;i<VIRTUAL_MEMORY_SIZE*2-3;i++)
 {
-    buffer[i]=key[rand()%62];
+    buffer[i]=key[random()%62];
 }
 buffer[VIRTUAL_MEMORY_SIZE*2-3]='y';
 buffer[VIRTUAL_MEMORY_SIZE*2-2]='m';
