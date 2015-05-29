@@ -14,14 +14,16 @@
 #define PAGE_SIZE 4
 /* 虚存空间大小（字节） */
 #define VIRTUAL_MEMORY_SIZE (64 * 4)
-/* 实存空间大小（字节） */ 
+/* 实存空间大小（字节） */
 #define ACTUAL_MEMORY_SIZE (32 * 4)
 /* 总虚页数 */
 #define PAGE_SUM (VIRTUAL_MEMORY_SIZE / PAGE_SIZE)
 /* 总物理块数 */
 #define BLOCK_SUM (ACTUAL_MEMORY_SIZE / PAGE_SIZE)
-
-
+/*总页目录数*/
+#define ROOT_PAGE_SUM 4
+/*二级页表项数*/
+#define SEC_PAGE_SUM (PAGE_SUM/ROOT_PAGE_SUM)
 /* 可读标识位 */
 #define READABLE 0x01u
 /* 可写标识位 */
@@ -53,10 +55,10 @@ typedef struct
 } PageTableItem, *Ptr_PageTableItem;
 
 /* 访存请求类型 */
-typedef enum { 
-	REQUEST_READ, 
-	REQUEST_WRITE, 
-	REQUEST_EXECUTE 
+typedef enum {
+	REQUEST_READ,
+	REQUEST_WRITE,
+	REQUEST_EXECUTE
 } MemoryAccessRequestType;
 
 /* 访存请求 */
