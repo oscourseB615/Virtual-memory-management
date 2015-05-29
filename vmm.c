@@ -14,9 +14,8 @@ FILE *ptr_auxMem;
 BOOL blockStatus[BLOCK_SUM];
 /* 访存请求 */
 Ptr_MemoryAccessRequest ptr_memAccReq;
-
-
-
+/*response*/
+int response=0;
 /* 初始化环境 */
 void do_init()
 {
@@ -54,7 +53,7 @@ void do_init()
 				break;
 			}
 			case 4:
-			{
+			{   
 				pageTable[i][k].proType = READABLE | EXECUTABLE;
 				break;
 			}
@@ -92,13 +91,14 @@ void do_init()
 }
 
 
+
 /* 响应请求 */
 void do_response()
 {
 	Ptr_PageTableItem ptr_pageTabIt;
 	unsigned int rootpageNum,secpagenum, offAddr,secpage;
 	unsigned int actAddr;
-
+	int i,j;
 	/* 检查地址是否越界 */
 	if (ptr_memAccReq->virAddr < 0 || ptr_memAccReq->virAddr >= VIRTUAL_MEMORY_SIZE)
 	{
@@ -112,6 +112,10 @@ void do_response()
 	secpagenum=ptr_memAccReq->virAddr%secpage/PAGE_SIZE;
 	offAddr = ptr_memAccReq->virAddr % PAGE_SIZE;
 	printf("一级页号为：%u\t二级页号为%u\t页内偏移为：%u\n", rootpageNum, secpagenum,offAddr);
+
+	for(i=0;i<ROOT_PAGE_SUM;i++){
+		for(j=0;j<SEC_PAGE_SUM;j++){
+		pageTable[i][j].count>>=1;}}
 
 	/* 获取对应页表项 */
 	ptr_pageTabIt = &pageTable[rootpageNum][secpagenum];
@@ -130,7 +134,8 @@ void do_response()
 	{
 		case REQUEST_READ: //读请求
 		{
-			ptr_pageTabIt->count++;
+		//	ptr_pageTabIt->count++;
+			ptr_pageTabIt->count|=0x80000000;
 			if (!(ptr_pageTabIt->proType & READABLE)) //页面不可读
 			{
 				do_error(ERROR_READ_DENY);
@@ -142,7 +147,8 @@ void do_response()
 		}
 		case REQUEST_WRITE: //写请求
 		{
-			ptr_pageTabIt->count++;
+	//		ptr_pageTabIt->count++;
+			ptr_pageTabIt->count|=0x80000000;
 			if (!(ptr_pageTabIt->proType & WRITABLE)) //页面不可写
 			{
 				do_error(ERROR_WRITE_DENY);
@@ -156,7 +162,8 @@ void do_response()
 		}
 		case REQUEST_EXECUTE: //执行请求
 		{
-			ptr_pageTabIt->count++;
+	//		ptr_pageTabIt->count++;
+			ptr_pageTabIt->count|=0x80000000;
 			if (!(ptr_pageTabIt->proType & EXECUTABLE)) //页面不可执行
 			{
 				do_error(ERROR_EXECUTE_DENY);
@@ -171,7 +178,15 @@ void do_response()
 			return;
 		}
 	}
+		response++;
+		printf("%d\n",response);
+	/*	if(response==5)
+		{
+			do_LRU(ptr_pageTabIt);
+			response=0;
+		}*/
 }
+
 
 /* 处理缺页中断 */
 void do_page_fault(Ptr_PageTableItem ptr_pageTabIt)
@@ -196,7 +211,7 @@ void do_page_fault(Ptr_PageTableItem ptr_pageTabIt)
 		}
 	}
 	/* 没有空闲物理块，进行页面替换 */
-	do_LFU(ptr_pageTabIt);
+	do_LRU(ptr_pageTabIt);
 }
 
 /* 根据LFU算法进行页面替换 */
@@ -213,7 +228,7 @@ void do_LFU(Ptr_PageTableItem ptr_pageTabIt)
             page_j=j;
 		}
 	}
-	printf("选择第一级页表%u页，二级页表第u%页进行替换\n", page_i,page_j);
+	printf("选择第一级页表%u页，二级页表第%u页进行替换\n", page_i,page_j);
 	if (pageTable[page_i][page_j].edited)
 	{
 		/* 页面内容有修改，需要写回至辅存 */
@@ -228,6 +243,42 @@ void do_LFU(Ptr_PageTableItem ptr_pageTabIt)
 	do_page_in(ptr_pageTabIt, pageTable[page_i][page_j].blockNum);
 
 	/* 更新页表内容 */
+	ptr_pageTabIt->blockNum = pageTable[page_i][page_j].blockNum;
+	ptr_pageTabIt->filled = TRUE;
+	ptr_pageTabIt->edited = FALSE;
+	ptr_pageTabIt->count = 0;
+	printf("页面替换成功\n");
+}
+/* 根据LRU算法进行页面替换 */
+
+void do_LRU(Ptr_PageTableItem ptr_pageTabIt)
+{
+	unsigned int i,j, min, page_i,page_j;
+	printf("没有空闲物理块，开始进行LRU页面替换...\n");
+	for (i = 0, min = 0xFFFFFFFF, page_i= 0,page_j=0; i < ROOT_PAGE_SUM; i++)
+	{   for(j=0;j<SEC_PAGE_SUM;j++)
+		if (pageTable[i][j].count < min)
+		{
+			min = pageTable[i][j].count;
+			page_i= i;
+         	        page_j=j;
+		}
+	}
+	printf("选择第一级页表%u页，二级页表第%u页进行替换\n", page_i,page_j);
+	if (pageTable[page_i][page_j].edited)
+	{
+//		页面内容有修改，需要写回至辅存 
+		printf("该页内容有修改，写回至辅存\n");
+		do_page_out(&pageTable[page_i][page_j]);
+	}
+	pageTable[page_i][page_j].filled = FALSE;
+	pageTable[page_i][page_j].count = 0;
+
+
+	 //读辅存内容，写入到实存 
+	do_page_in(ptr_pageTabIt, pageTable[page_i][page_j].blockNum);
+
+//	 更新页表内容 
 	ptr_pageTabIt->blockNum = pageTable[page_i][page_j].blockNum;
 	ptr_pageTabIt->filled = TRUE;
 	ptr_pageTabIt->edited = FALSE;
@@ -427,12 +478,12 @@ void do_print_info()
 {
 	unsigned int i, j, k;
 	char str[4];
-	printf("一级页号\t二级页号\t块号\t装入\t修改\t保护\t计数\t辅存\n");
+	printf("一级页号\t二级页号\t块号\t装入\t修改\t保护\t计数\t\t辅存\n");
 	for (i = 0; i < ROOT_PAGE_SUM; i++)
     {
         for(j=0;j<SEC_PAGE_SUM;j++)
 	{
-		printf("%u\t\t%u\t\t%u\t%u\t%u\t%s\t%u\t%u\n", i,j, pageTable[i][j].blockNum, pageTable[i][j].filled,
+		printf("%u\t\t%u\t\t%u\t%u\t%u\t%s\t%08x\t%u\n", i,j, pageTable[i][j].blockNum, pageTable[i][j].filled,
 			pageTable[i][j].edited, get_proType_str(str, pageTable[i][j].proType),
 			pageTable[i][j].count, pageTable[i][j].auxAddr);
 	}
@@ -485,8 +536,23 @@ void do_print_file(){
 
     ptr_auxMem = fopen(AUXILIARY_MEMORY, "r+");
     char ch;
+	int i=0;
     while((ch=fgetc(ptr_auxMem))!=EOF)
-        putchar(ch);
+       { printf("地址:%d\t内容:%02x\t",i,ch);
+               i++; 
+	if((ch=fgetc(ptr_auxMem))!=EOF)
+	{ printf("地址:%d\t内容:%02x\t",i,ch);
+               i++; }
+	else break;
+	if((ch=fgetc(ptr_auxMem))!=EOF)
+ 	{printf("地址:%d\t内容:%02x\t",i,ch);
+               i++; }
+	else break;
+	if((ch=fgetc(ptr_auxMem))!=EOF)
+ 	{printf("地址:%d\t内容:%02x\n",i,ch);
+               i++; }
+	else break;
+	}
 printf("\n");
 
 }
@@ -517,6 +583,7 @@ int main(int argc, char* argv[])
         else
 		    do_request();
 		do_response();
+		
 		c=getchar();
 		printf("按Y打印页表，按z键打印实存内容，按W打印辅存内容，按其他键不打印...\n");
 		if ((c = getchar()) == 'y' || c == 'Y')
