@@ -31,6 +31,7 @@
 /* 可执行标识位 */
 #define EXECUTABLE 0x04u
 
+#define FIFO_NAME "/tmp/vmm_fifo"
 
 
 /* 定义字节类型 */
@@ -52,6 +53,7 @@ typedef struct
 	BOOL edited; //页面修改标识
 	unsigned long auxAddr; //外存地址
 	unsigned long count; //页面使用计数器
+	unsigned int processnum;//进程编号
 } PageTableItem, *Ptr_PageTableItem;
 
 /* 访存请求类型 */
@@ -59,6 +61,7 @@ typedef enum {
 	REQUEST_READ,
 	REQUEST_WRITE,
 	REQUEST_EXECUTE
+
 } MemoryAccessRequestType;
 
 /* 访存请求 */
@@ -67,21 +70,31 @@ typedef struct
 	MemoryAccessRequestType reqType; //访存请求类型
 	unsigned long virAddr; //虚地址
 	BYTE value; //写请求的值
+	unsigned int processnum;//进程编号
 } MemoryAccessRequest, *Ptr_MemoryAccessRequest;
 
+typedef struct 
+{
+	MemoryAccessRequest memAccReq;
+	char cmdType; 
+}VMM_cmd, *Ptr_VMM_cmd;
 
 /* 访存错误代码 */
 typedef enum {
-	ERROR_READ_DENY, //该页不可读
-	ERROR_WRITE_DENY, //该页不可写
-	ERROR_EXECUTE_DENY, //该页不可执行
-	ERROR_INVALID_REQUEST, //非法请求类型
-	ERROR_OVER_BOUNDARY, //地址越界
-	ERROR_FILE_OPEN_FAILED, //文件打开失败
-	ERROR_FILE_CLOSE_FAILED, //文件关闭失败
-	ERROR_FILE_SEEK_FAILED, //文件指针定位失败
-	ERROR_FILE_READ_FAILED, //文件读取失败
-	ERROR_FILE_WRITE_FAILED //文件写入失败
+	ERROR_READ_DENY, 				//该页不可读
+	ERROR_WRITE_DENY, 				//该页不可写
+	ERROR_EXECUTE_DENY, 			//该页不可执行
+	ERROR_INVALID_REQUEST, 			//非法请求类型
+	ERROR_OVER_BOUNDARY, 			//地址越界
+	ERROR_FILE_OPEN_FAILED, 		//文件打开失败
+	ERROR_FILE_CLOSE_FAILED, 		//文件关闭失败
+	ERROR_FILE_SEEK_FAILED, 		//文件指针定位失败
+	ERROR_FILE_READ_FAILED, 		//文件读取失败
+	ERROR_FILE_WRITE_FAILED, 		//文件写入失败
+	ERROR_FIFO_REMOVE_FAILED,		//FIFO移除失败
+	ERROR_FIFO_MAKE_FAILED,			//FIFO创建失败
+	ERROR_FIFO_OPEN_FAILED,			//FIFO打开失败
+	ERROR_FIFO_READ_FAILED			//FIFO读取失败
 } ERROR_CODE;
 
 /* 产生访存请求 */

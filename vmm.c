@@ -1,5 +1,7 @@
 ﻿#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>>
 #include <time.h>
 #include <errno.h>
 #include "vmm.h"
@@ -89,8 +91,6 @@ void do_init()
 			blockStatus[j] = FALSE;
 	}
 }
-
-
 
 /* 响应请求 */
 void do_response()
@@ -187,7 +187,6 @@ void do_response()
 		}*/
 }
 
-
 /* 处理缺页中断 */
 void do_page_fault(Ptr_PageTableItem ptr_pageTabIt)
 {
@@ -249,8 +248,8 @@ void do_LFU(Ptr_PageTableItem ptr_pageTabIt)
 	ptr_pageTabIt->count = 0;
 	printf("页面替换成功\n");
 }
-/* 根据LRU算法进行页面替换 */
 
+/* 根据LRU算法进行页面替换 */
 void do_LRU(Ptr_PageTableItem ptr_pageTabIt)
 {
 	unsigned int i,j, min, page_i,page_j;
@@ -292,20 +291,20 @@ void do_page_in(Ptr_PageTableItem ptr_pageTabIt, unsigned int blockNum)
 	unsigned int readNum;
 	if (fseek(ptr_auxMem, ptr_pageTabIt->auxAddr, SEEK_SET) < 0)
 	{
-#ifdef DEBUG
-		printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt->auxAddr, ftell(ptr_auxMem));
-#endif
+	#ifdef DEBUG
+			printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt->auxAddr, ftell(ptr_auxMem));
+	#endif
 		do_error(ERROR_FILE_SEEK_FAILED);
 		exit(1);
 	}
 	if ((readNum = fread(actMem + blockNum * PAGE_SIZE,
 		sizeof(BYTE), PAGE_SIZE, ptr_auxMem)) < PAGE_SIZE)
 	{
-#ifdef DEBUG
-		printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt->auxAddr, ftell(ptr_auxMem));
-		printf("DEBUG: blockNum=%u\treadNum=%u\n", blockNum, readNum);
-		printf("DEGUB: feof=%d\tferror=%d\n", feof(ptr_auxMem), ferror(ptr_auxMem));
-#endif
+	#ifdef DEBUG
+			printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt->auxAddr, ftell(ptr_auxMem));
+			printf("DEBUG: blockNum=%u\treadNum=%u\n", blockNum, readNum);
+			printf("DEGUB: feof=%d\tferror=%d\n", feof(ptr_auxMem), ferror(ptr_auxMem));
+	#endif
 		do_error(ERROR_FILE_READ_FAILED);
 		exit(1);
 	}
@@ -318,20 +317,19 @@ void do_page_out(Ptr_PageTableItem ptr_pageTabIt)
 	unsigned int writeNum;
 	if (fseek(ptr_auxMem, ptr_pageTabIt->auxAddr, SEEK_SET) < 0)
 	{
-#ifdef DEBUG
-		printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt, ftell(ptr_auxMem));
-#endif
+		#ifdef DEBUG
+				printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt, ftell(ptr_auxMem));
+		#endif
 		do_error(ERROR_FILE_SEEK_FAILED);
 		exit(1);
 	}
 	if ((writeNum = fwrite(actMem + ptr_pageTabIt->blockNum * PAGE_SIZE,
-		sizeof(BYTE), PAGE_SIZE, ptr_auxMem)) < PAGE_SIZE)
-	{
-#ifdef DEBUG
-		printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt->auxAddr, ftell(ptr_auxMem));
-		printf("DEBUG: writeNum=%u\n", writeNum);
-		printf("DEGUB: feof=%d\tferror=%d\n", feof(ptr_auxMem), ferror(ptr_auxMem));
-#endif
+			sizeof(BYTE), PAGE_SIZE, ptr_auxMem)) < PAGE_SIZE){
+		#ifdef DEBUG
+			printf("DEBUG: auxAddr=%u\tftell=%u\n", ptr_pageTabIt->auxAddr, ftell(ptr_auxMem));
+			printf("DEBUG: writeNum=%u\n", writeNum);
+			printf("DEGUB: feof=%d\tferror=%d\n", feof(ptr_auxMem), ferror(ptr_auxMem));
+		#endif
 		do_error(ERROR_FILE_WRITE_FAILED);
 		exit(1);
 	}
@@ -393,6 +391,26 @@ void do_error(ERROR_CODE code)
 			printf("系统错误：写入文件失败\n");
 			break;
 		}
+		case ERROR_FIFO_REMOVE_FAILED:
+		{
+			printf("FIFO移除失败\n");
+			break;
+		}
+		case ERROR_FIFO_MAKE_FAILED:			//FIFO创建失败
+		{
+			printf("FIFO创建失败\n");
+			break;
+		}
+		case ERROR_FIFO_OPEN_FAILED:			//FIFO打开失败
+		{
+			printf("FIFO打开失败\n");
+			break;
+		}
+		case ERROR_FIFO_READ_FAILED:			//FIFO读取失败
+		{
+			printf("FIFO读取失败\n");
+			break;
+		}
 		default:
 		{
 			printf("未知错误：没有这个错误代码\n");
@@ -400,79 +418,6 @@ void do_error(ERROR_CODE code)
 	}
 }
 
-/* 产生访存请求 */
-void do_request()
-{
-	/* 随机产生请求地址 */
-	ptr_memAccReq->virAddr = random() % VIRTUAL_MEMORY_SIZE;
-	/* 随机产生请求类型 */
-	switch (random() % 3)
-	{
-		case 0: //读请求
-		{
-			ptr_memAccReq->reqType = REQUEST_READ;
-			printf("产生请求：\n地址：%u\t类型：读取\n", ptr_memAccReq->virAddr);
-			break;
-		}
-		case 1: //写请求
-		{
-			ptr_memAccReq->reqType = REQUEST_WRITE;
-			/* 随机产生待写入的值 */
-			ptr_memAccReq->value = random() % 0xFFu;
-			printf("产生请求：\n地址：%u\t类型：写入\t值：%02X\n", ptr_memAccReq->virAddr, ptr_memAccReq->value);
-			break;
-		}
-		case 2:
-		{
-			ptr_memAccReq->reqType = REQUEST_EXECUTE;
-			printf("产生请求：\n地址：%u\t类型：执行\n", ptr_memAccReq->virAddr);
-			break;
-		}
-		default:
-			break;
-	}
-}
-void do_request1()
-{
-	/* 输入请求地址 */
-	int a;
-	char b;
-	printf("输入请求地址...\n");
-	scanf("%d",&a);
-	ptr_memAccReq->virAddr =a;
-	/* 输入请求类型 */
-	printf("输入请求类型,0-读取，1-写入，2-执行...\n");
-	scanf("%d",&a);
-	switch (a)
-	{
-		case 0: //读请求
-		{
-			ptr_memAccReq->reqType = REQUEST_READ;
-			printf("产生请求：\n地址：%u\t类型：读取\n", ptr_memAccReq->virAddr);
-			break;
-		}
-		case 1: //写请求
-		{
-			ptr_memAccReq->reqType = REQUEST_WRITE;
-			/* 输入待写入的值 */
-			printf("输入待写入的值 ...\n");
-			getchar();
-			scanf("%c",&b);
-
-			ptr_memAccReq->value =b% 0xFFu;
-			printf("产生请求：\n地址：%u\t类型：写入\t值：%02X\n", ptr_memAccReq->virAddr, ptr_memAccReq->value);
-			break;
-		}
-		case 2:
-		{
-			ptr_memAccReq->reqType = REQUEST_EXECUTE;
-			printf("产生请求：\n地址：%u\t类型：执行\n", ptr_memAccReq->virAddr);
-			break;
-		}
-		default:
-			break;
-	}
-}
 /* 打印页表 */
 void do_print_info()
 {
@@ -482,12 +427,13 @@ void do_print_info()
 	for (i = 0; i < ROOT_PAGE_SUM; i++)
     {
         for(j=0;j<SEC_PAGE_SUM;j++)
-	{
-		printf("%u\t\t%u\t\t%u\t%u\t%u\t%s\t%08x\t%u\n", i,j, pageTable[i][j].blockNum, pageTable[i][j].filled,
-			pageTable[i][j].edited, get_proType_str(str, pageTable[i][j].proType),
-			pageTable[i][j].count, pageTable[i][j].auxAddr);
-	}
-}}
+		{
+			printf("%u\t\t%u\t\t%u\t%u\t%u\t%s\t%08x\t%u\n", i,j, pageTable[i][j].blockNum, pageTable[i][j].filled,
+				pageTable[i][j].edited, get_proType_str(str, pageTable[i][j].proType),
+				pageTable[i][j].count, pageTable[i][j].auxAddr);
+		}
+	}	
+}
 
 /* 获取页面保护类型字符串 */
 char *get_proType_str(char *str, BYTE type)
@@ -507,31 +453,35 @@ char *get_proType_str(char *str, BYTE type)
 	str[3] = '\0';
 	return str;
 }
+
 void initfile(){
-int i;
-char* key="0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-char buffer[VIRTUAL_MEMORY_SIZE*2+1];
-int err;
-ptr_auxMem=fopen(AUXILIARY_MEMORY,"w+");
-for(i=0;i<VIRTUAL_MEMORY_SIZE*2-3;i++)
-{
-    buffer[i]=key[random()%62];
+	int i;
+	char* key="0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	char buffer[VIRTUAL_MEMORY_SIZE*2+1];
+	int err;
+	ptr_auxMem=fopen(AUXILIARY_MEMORY,"w+");
+	for(i=0;i<VIRTUAL_MEMORY_SIZE*2-3;i++)
+	{
+	    buffer[i]=key[random()%62];
+	}
+	buffer[VIRTUAL_MEMORY_SIZE*2-3]='y';
+	buffer[VIRTUAL_MEMORY_SIZE*2-2]='m';
+	buffer[VIRTUAL_MEMORY_SIZE*2-1]='c';
+	buffer[VIRTUAL_MEMORY_SIZE*2]='\0';
+	//随机生成256位字符串
+	fwrite(buffer,sizeof(BYTE),VIRTUAL_MEMORY_SIZE*2,ptr_auxMem);
+	/*
+	size_t fwrite(const void* buffer, size_t size,size_t count,FILE* stream)
+	*/
+	printf("系统提示：初始化辅存模拟文件完成\n");
+	fclose(ptr_auxMem);
 }
-buffer[VIRTUAL_MEMORY_SIZE*2-3]='y';
-buffer[VIRTUAL_MEMORY_SIZE*2-2]='m';
-buffer[VIRTUAL_MEMORY_SIZE*2-1]='c';
-buffer[VIRTUAL_MEMORY_SIZE*2]='\0';
-//随机生成256位字符串
-fwrite(buffer,sizeof(BYTE),VIRTUAL_MEMORY_SIZE*2,ptr_auxMem);
-/*
-size_t fwrite(const void* buffer, size_t size,size_t count,FILE* stream)
-*/
-printf("系统提示：初始化辅存模拟文件完成\n");
-fclose(ptr_auxMem);
-}
+
 void do_print_res(){
-    printf("%s ",actMem);
+   // printf("%s ",actMem);
+	printf("debug do_print_res");
 }
+
 void do_print_file(){
 
     ptr_auxMem = fopen(AUXILIARY_MEMORY, "r+");
@@ -553,14 +503,16 @@ void do_print_file(){
                i++; }
 	else break;
 	}
-printf("\n");
-
+	printf("\n");
 }
 
 int main(int argc, char* argv[])
 {
 	char c;
 	int i,s;
+	int pipe_fg;
+	int count;
+	VMM_cmd cmd;
 	initfile();
 	if (!(ptr_auxMem = fopen(AUXILIARY_MEMORY, "r+")))
 	{
@@ -570,38 +522,55 @@ int main(int argc, char* argv[])
 
 	do_init();
 	do_print_info();
-	ptr_memAccReq = (Ptr_MemoryAccessRequest) malloc(sizeof(MemoryAccessRequest));
+	ptr_memAccReq = &cmd.memAccReq;
+	//ptr_memAccReq = (Ptr_MemoryAccessRequest) malloc(sizeof(MemoryAccessRequest));
+
+	struct stat statbuf;
+	if(stat(FIFO_NAME,&statbuf)==0){
+			/* 如果FIFO文件存在,删掉 */
+		if(remove(FIFO_NAME)<0){
+			do_error(ERROR_FIFO_REMOVE_FAILED);
+			exit(1);
+		}
+	}
+	if(mkfifo(FIFO_NAME,0666)<0){
+		do_error(ERROR_FIFO_MAKE_FAILED);
+		exit(1);
+	}
+	if((pipe_fg = open(FIFO_NAME,O_RDONLY))<0){
+		do_error(ERROR_FIFO_OPEN_FAILED);
+		exit(1);
+	}
+
 	/* 在循环中模拟访存请求与处理过程 */
 	while (TRUE)
 	{
-		printf("是否手动输入request，是-1，否-其他数字...\n");
-		scanf("%d",&s);
-		if((s==1))
-           {
-            do_request1();
-           }
-        else
-		    do_request();
-		do_response();
-		
-		c=getchar();
-		printf("按Y打印页表，按z键打印实存内容，按W打印辅存内容，按其他键不打印...\n");
-		if ((c = getchar()) == 'y' || c == 'Y')
+		bzero(&cmd,sizeof(VMM_cmd));
+		if((count = read(pipe_fg, &cmd, sizeof(VMM_cmd)))<0){
+			do_error(ERROR_FIFO_READ_FAILED);
+			exit(1);
+		}
+		if(count == 0)
+			continue;
+		c = cmd.cmdType;
+		putchar (c);
+		if( c == '1' || c == '2'){
+			do_response();
+		}
+		else if(c == 'y' || c == 'Y'){
 			do_print_info();
-        else if(c=='z'||c=='Z')
-            do_print_res();
-        else if(c=='w'||c=='W')
-            do_print_file();
-		while (c != '\n')
-			c = getchar();
-		printf("按X退出程序，按其他键继续...\n");
-		if ((c = getchar()) == 'x' || c == 'X')
+		}
+		else if(c == 'z' || c == 'Z'){
+			//printf("debug do_print_res");
+			do_print_res();
+		}
+		else if(c == 'w' || c == 'W'){
+			do_print_file();
+		}
+		else if(c == 'x' || c == 'X'){
 			break;
-		while (c != '\n')
-			c = getchar();
-		//sleep(5000);
+		}
 	}
-
 	if (fclose(ptr_auxMem) == EOF)
 	{
 		do_error(ERROR_FILE_CLOSE_FAILED);
